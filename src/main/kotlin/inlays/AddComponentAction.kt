@@ -15,6 +15,7 @@ import com.intellij.openapi.util.Ref
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.FileContentUtil
+import com.intellij.util.ui.UIUtil
 import net.miginfocom.swing.MigLayout
 import javax.swing.JButton
 import javax.swing.JPanel
@@ -36,10 +37,13 @@ class AddComponentAction : AnAction() {
         val inlayRef = Ref<Disposable>()
         val panel = makePanel(makeEditor(project), inlayRef)
         val inlay = manager.insertAfter(lineNumber, panel)
+        panel.revalidate()
         inlayRef.set(inlay)
     }
 
     fun makePanel(editor: Editor, inlayRef: Ref<Disposable>): JPanel {
+        editor.contentComponent.putClientProperty(UIUtil.HIDE_EDITOR_FROM_DATA_CONTEXT_PROPERTY, true)
+
         val action = object : AnAction({ "Close" }, AllIcons.Actions.Close) {
             override fun actionPerformed(e: AnActionEvent) {
                 inlayRef.get().dispose()
