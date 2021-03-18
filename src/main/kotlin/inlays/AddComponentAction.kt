@@ -1,20 +1,16 @@
 package inlays
 
 import com.intellij.icons.AllIcons
-import com.intellij.ide.highlighter.HighlighterFactory
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.actionSystem.impl.ActionButton
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.actions.IncrementalFindAction
 import com.intellij.openapi.editor.ex.EditorEx
-import com.intellij.openapi.fileTypes.PlainTextFileType
-import com.intellij.openapi.fileTypes.PlainTextLanguage
+import com.intellij.openapi.fileTypes.FileTypes
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Ref
-import com.intellij.testFramework.LightVirtualFile
-import com.intellij.ui.components.JBScrollPane
-import com.intellij.util.FileContentUtil
+import com.intellij.ui.EditorTextField
 import com.intellij.util.ui.UIUtil
 import net.miginfocom.swing.MigLayout
 import javax.swing.JButton
@@ -41,9 +37,7 @@ class AddComponentAction : AnAction() {
         inlayRef.set(inlay)
     }
 
-    fun makePanel(editor: Editor, inlayRef: Ref<Disposable>): JPanel {
-        editor.contentComponent.putClientProperty(UIUtil.HIDE_EDITOR_FROM_DATA_CONTEXT_PROPERTY, true)
-
+    fun makePanel(editor: EditorTextField, inlayRef: Ref<Disposable>): JPanel {
         val action = object : AnAction({ "Close" }, AllIcons.Actions.Close) {
             override fun actionPerformed(e: AnActionEvent) {
                 inlayRef.get().dispose()
@@ -64,11 +58,11 @@ class AddComponentAction : AnAction() {
 
         return JPanel(MigLayout("wrap 1, insets 0, gap 0!, fillx")).apply {
             add(toolbarPanel, "growx, growy 0, gap 0!")
-            add(editor.contentComponent, "grow, gap 0!")
+            add(editor, "grow, gap 0!")
         }
     }
 
-    fun makeEditor(project: Project): Editor {
+    fun makeEditor(project: Project): EditorTextField {
         val factory = EditorFactory.getInstance()
         val text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod\n" +
                 "tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,\n" +
@@ -76,13 +70,32 @@ class AddComponentAction : AnAction() {
                 "consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse\n" +
                 "cillum dolore eu fugiat nulla pariatur."
         val document = factory.createDocument(text)
-        val editor = factory.createEditor(document, project)
-        val virtualFile = LightVirtualFile("ipsum.txt", PlainTextLanguage.INSTANCE, text)
-        virtualFile.setContent(document, document.text, false)
-        FileContentUtil.reparseFiles(project, listOf(virtualFile), false)
-        (editor as? EditorEx)?.highlighter = HighlighterFactory.createHighlighter(project, PlainTextFileType.INSTANCE)
-        editor.setBorder(null)
-        (editor as? EditorEx)?.scrollPane?.viewportBorder = JBScrollPane.createIndentBorder()
-        return editor
+
+        return object : EditorTextField(document, project, FileTypes.PLAIN_TEXT) {
+            //always paint pretty border
+            override fun updateBorder(editor: EditorEx) = setupBorder(editor)
+
+            override fun createEditor(): EditorEx {
+                // otherwise border background is painted from multiple places
+                return super.createEditor().apply {
+                    //TODO: fix in editor
+                    //com.intellij.openapi.editor.impl.EditorImpl.getComponent() == non-opaque JPanel
+                    // which uses default panel color
+                    component.isOpaque = false
+                    //com.intellij.ide.ui.laf.darcula.ui.DarculaEditorTextFieldBorder.paintBorder
+                    scrollPane.isOpaque = false
+                }
+            }
+        }.apply {
+            putClientProperty(UIUtil.HIDE_EDITOR_FROM_DATA_CONTEXT_PROPERTY, true)
+            setOneLineMode(false)
+            setPlaceholder(text)
+            addSettingsProvider {
+                it.putUserData(IncrementalFindAction.SEARCH_DISABLED, true)
+                it.colorsScheme.lineSpacing = 1f
+                it.settings.isUseSoftWraps = true
+            }
+            selectAll()
+        }
     }
 }
