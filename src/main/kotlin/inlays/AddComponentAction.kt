@@ -7,12 +7,14 @@ import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.actions.IncrementalFindAction
 import com.intellij.openapi.editor.ex.EditorEx
+import com.intellij.openapi.editor.impl.EditorImpl
 import com.intellij.openapi.fileTypes.FileTypes
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Ref
 import com.intellij.ui.EditorTextField
 import com.intellij.util.ui.UIUtil
 import net.miginfocom.swing.MigLayout
+import java.awt.event.ComponentEvent
 import javax.swing.JButton
 import javax.swing.JPanel
 
@@ -35,6 +37,8 @@ class AddComponentAction : AnAction() {
         val inlay = manager.insertAfter(lineNumber, panel)
         panel.revalidate()
         inlayRef.set(inlay)
+        val viewport = (editor as? EditorImpl)?.scrollPane?.viewport
+        viewport?.dispatchEvent(ComponentEvent(viewport, ComponentEvent.COMPONENT_RESIZED))
     }
 
     fun makePanel(editor: EditorTextField, inlayRef: Ref<Disposable>): JPanel {
